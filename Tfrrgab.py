@@ -1,6 +1,6 @@
 import torch
 import matplotlib.pyplot as plt
-class Tfrgab(torch.nn.Module):
+class Tfrrgab(torch.nn.Module):
     def __init__(self, M, eps=1e-6, L=10, gamma_K=1e-4):
         super().__init__()
 
@@ -68,17 +68,3 @@ class Tfrgab(torch.nn.Module):
                     rtfr[m_hat, n_hat] = rtfr[m_hat, n_hat] + torch.abs(tfr[m, n]).item() ** 2
                     
         return rtfr, lost
-if __name__ == "__main__":
-    M = 512
-    tfrgab = Tfrgab(M)
-    fs = 1000
-    f = 100
-    t = torch.arange(0, 1, 1/fs)
-    x = torch.cos(2 * torch.pi * f * t)
-    rtfr, lost = tfrgab(x)
-    print(lost)
-    
-    plt.imshow(torch.log1p(rtfr.abs()).cpu().numpy(), aspect='auto', origin='lower')
-    plt.title("Spectrogramme Réassigné (Gabor)")
-    plt.colorbar()
-    plt.show()

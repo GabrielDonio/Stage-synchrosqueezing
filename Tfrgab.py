@@ -39,16 +39,3 @@ class Tfrgab(torch.nn.Module):
                 tfr[m, n] = exp_B_mm_nn * torch.sum(x_slice * g * exp_B_mm_k)
                 
         return tfr
-if __name__ == "__main__":
-    M = 256
-    fs = 1000
-    f = 100
-    t = torch.arange(0, 1, 1/fs)
-    x = torch.cos(2 * torch.pi * f * t)
-    tfrgab = Tfrgab(M)
-    rtfr = tfrgab(x)
-    
-    plt.imshow(torch.log1p(rtfr.abs()).cpu().numpy(), aspect='auto', origin='lower')
-    plt.title("Spectrogramme Réassigné (Gabor)")
-    plt.colorbar()
-    plt.show()

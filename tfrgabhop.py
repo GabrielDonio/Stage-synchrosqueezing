@@ -1,6 +1,6 @@
 import torch
 import matplotlib.pyplot as plt
-class Tfrgab(torch.nn.Module):
+class Tfrgabhop(torch.nn.Module):
     def __init__(self, M,hop_length, eps=1e-6, L=10, gamma_K=1e-4):
         super().__init__()
 
@@ -47,17 +47,3 @@ class Tfrgab(torch.nn.Module):
                 tfr[m, frame_idx] = exp_B_mm_nn * torch.sum(x_slice * g_valid * exp_B_mm_k_valid)
                 
         return tfr
-if __name__ == "__main__":
-    M = 256
-    hop_length = 32
-    fs = 1000
-    f = 100
-    t = torch.arange(0, 1, 1/fs)
-    x = torch.cos(2 * torch.pi * f * t**2)
-    tfrgab = Tfrgab(M, hop_length)
-    rtfr = tfrgab(x)
-    
-    plt.imshow(torch.log1p(rtfr.abs()).cpu().numpy(), aspect='auto', origin='lower')
-    plt.title("Spectrogramme avec hop_length (Gabor)")
-    plt.colorbar()
-    plt.show()

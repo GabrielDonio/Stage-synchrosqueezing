@@ -59,20 +59,6 @@ class Stfrgab(torch.nn.Module):
                         lost += torch.abs(tfr[m, n]).item() ** 2
                         continue
                     
-                    rtfr[m_hat, n] = rtfr[m_hat, n] + tfr[m, n]/(2*torch.pi) * torch.exp(2*1j*torch.pi*mm[m]*nn/M)
+                    rtfr[m_hat, n] = rtfr[m_hat, n] + tfr[m, n]/(2*torch.pi) * torch.exp(2*1j*torch.pi*mm[m]*nn/self.M)
                     
         return rtfr, lost
-if __name__ == "__main__":
-    M = 512
-    tfrgab = Stfrgab(M)
-    fs = 100
-    f = 50
-    t = torch.arange(0, 1, 1/fs)
-    x = torch.cos(2 * torch.pi * f * t**2)
-    rtfr, lost = tfrgab(x)
-    print(lost)
-    
-    plt.imshow(torch.log1p(rtfr.abs()).cpu().numpy(), aspect='auto', origin='lower')
-    plt.title("Synchrosqueezed (Gabor)")
-    plt.colorbar()
-    plt.show()
