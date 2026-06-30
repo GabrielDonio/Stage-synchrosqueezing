@@ -1,6 +1,18 @@
 import torch
 import matplotlib.pyplot as plt
 class Tfrgabhop(torch.nn.Module):
+    """
+    implementation of the Gabor transform with hop length.
+
+    Args:
+        M (int): Number of frequency bins.
+        hop_length (int): Hop length for the Gabor transform.
+        eps (float): Threshold for the Gabor transform.
+        L (float): Width of the Gaussian window.
+        gamma_K (float): Threshold for the Gaussian window.
+    Returns:
+        tfr (torch.Tensor): Time-frequency representation.
+    """
     def __init__(self, M,hop_length, eps=1e-6, L=10, gamma_K=1e-4):
         super().__init__()
 

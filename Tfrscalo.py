@@ -2,6 +2,19 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 class Tfrscalo(torch.nn.Module):
+    """
+    Implementation of the time-frequency representation using a continuous wavelet transform with a Morlet wavelet.
+    Args:
+        M (int): Number of frequency bins.
+        T (float): Total time duration.
+        Ts (float): Sampling period.
+        w0 (float): Central frequency of the Morlet wavelet.
+        eps (float): Threshold for the synchrosqueezing transform.
+        gamma_K (float): Threshold for the Gaussian window.
+        as_range (list): Range of scales for the wavelet transform.
+    Returns:
+        tfr (torch.Tensor): Time-frequency representation.
+    """
     def __init__(self, M, T, Ts, w0, eps=1e-6, gamma_K=1e-5, as_range=[0.05, 1.5]):
         super().__init__()
 
@@ -11,7 +24,7 @@ class Tfrscalo(torch.nn.Module):
         self.w0 = w0        
         self.gamma_K = gamma_K
         self.eps = eps
-        
+        self.as_range = as_range
         self.scales = torch.tensor(np.logspace(np.log10(as_range[0]), np.log10(as_range[1]), M))
 
         self.sqrt_pi = torch.sqrt(torch.tensor(torch.pi))

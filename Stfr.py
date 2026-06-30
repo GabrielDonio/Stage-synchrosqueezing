@@ -1,6 +1,16 @@
 import torch
 import matplotlib.pyplot as plt
 class Stfrgab(torch.nn.Module):
+    """
+    implementation of the synchrosqueezing transform based on the Gabor transform.
+    Args:
+        M (int): Number of frequency bins.
+        L (float): Width of the Gaussian window.
+        gamma_K (float): Threshold for the Gaussian window.
+        eps (float): Threshold for the synchrosqueezing transform.
+    Returns:
+        rtfr (torch.Tensor): Synchrosqueezed time-frequency representation.
+    """
     def __init__(self, M, eps=1e-6, L=10, gamma_K=1e-4):
         super().__init__()
 

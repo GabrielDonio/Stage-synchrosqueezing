@@ -3,6 +3,16 @@ import matplotlib.pyplot as plt
 
 
 class Tfrfen(torch.nn.Module):
+    """
+    implementation of the time-frequency representation with a given window.
+
+    Args:
+        M (int): Number of frequency bins.
+        window (torch.Tensor): The window function.
+        eps (float): Threshold for the time-frequency representation.
+    Returns:
+        tfr (torch.Tensor): Time-frequency representation.
+    """
     def __init__(self, M, window, eps=1e-6):
         super().__init__()
         self.M = M
