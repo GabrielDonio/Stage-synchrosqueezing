@@ -9,7 +9,7 @@ class Tfrrgab(torch.nn.Module):
         self.gamma_K = gamma_K
         self.eps = eps
 
-        self.K = 2 * L * torch.sqrt(torch.tensor(2.0) * torch.log(torch.tensor(1.0 / gamma_K)))
+        self.K = 2 * L * torch.sqrt(torch.tensor(2.0) * torch.log(torch.tensor(1.0 / gamma_K))) #seuillage pour la fenetre de gabor
         self.A = 1 / (torch.sqrt(torch.tensor(2.0 * torch.pi)) * self.L)
         self.B = -1j * 2 * torch.pi / self.M
         self.C = -1 / (2 * self.L**2)
@@ -31,7 +31,7 @@ class Tfrrgab(torch.nn.Module):
         
         for n in range(N):
             k_min = min(n, int(torch.round(self.K / 2).item()))
-            k_max = min(N - 1 - n, int(torch.round(self.K / 2).item())) #calcul de la longueur de la fenetre
+            k_max = min(N - 1 - n, int(torch.round(self.K / 2).item())) 
 
             k = torch.arange(-k_min, k_max + 1, device=device)
             k2 = k ** 2
@@ -46,18 +46,18 @@ class Tfrrgab(torch.nn.Module):
                 exp_B_mm_k = torch.exp(self.B * mm[m] * k)
                 exp_B_mm_nn = torch.exp(self.B * mm[m] * nn)
                 
-                x_slice = x[n + k] #on prend la tranche de signal centrée sur n entre -k_min et k_max
+                x_slice = x[n + k]
                 
                 tfr[m, n] = exp_B_mm_nn * torch.sum(x_slice * g * exp_B_mm_k)
                 
                 if torch.abs(tfr[m, n]) > self.eps:
 
-                    tfr_t[m, n] = exp_B_mm_nn * torch.sum(x_slice * tg * exp_B_mm_k)
-                    tfr_d[m, n] = exp_B_mm_nn * torch.sum(x_slice * dg * exp_B_mm_k)
+                    tfr_t[m, n] = exp_B_mm_nn * torch.sum(x_slice * tg * exp_B_mm_k) 
+                    tfr_d[m, n] = exp_B_mm_nn * torch.sum(x_slice * dg * exp_B_mm_k) #STFT avec la fenetre dérivée
                     
                     n_hat = n - int(torch.round(torch.real(tfr_t[m, n] / tfr[m, n])).item()) #realocation en temps
                     m_hat = m + int(torch.round((self.M / (2 * torch.pi)) * torch.imag(tfr_d[m, n] / tfr[m, n])).item()) # réalocation en fréquence
-                    
+                    #erification des bornes
                     n_out_of_bounds = (n_hat < 0) or (n_hat >= N)
                     m_out_of_bounds = (m_hat < 0) or (m_hat >= self.M)
                     
@@ -65,6 +65,6 @@ class Tfrrgab(torch.nn.Module):
                         lost += torch.abs(tfr[m, n]).item() ** 2
                         continue
                     
-                    rtfr[m_hat, n_hat] = rtfr[m_hat, n_hat] + torch.abs(tfr[m, n]).item() ** 2
+                    rtfr[m_hat, n_hat] = rtfr[m_hat, n_hat] + torch.abs(tfr[m, n]).item() ** 2 #ajout de l'énergie à la position réalouée
                     
         return rtfr, lost

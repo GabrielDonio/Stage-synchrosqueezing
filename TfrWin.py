@@ -2,7 +2,7 @@ import torch
 import matplotlib.pyplot as plt
 
 
-class Tfrfen(torch.nn.Module):
+class TfrWin(torch.nn.Module):
     """
     implementation of the time-frequency representation with a given window.
 
@@ -45,19 +45,4 @@ class Tfrfen(torch.nn.Module):
                 tfr[m, n] = torch.sum(x_slice * w * exp_B_mm_k)
 
         return tfr
-
-if __name__ == "__main__":
-    M = 512
-    window = torch.hann_window(128)
-    tfrfen = Tfrfen(M, window)
-    fs = 300
-    f = 50
-    t = torch.arange(0, 1, 1/fs)
-    x = torch.cos(2 * torch.pi * f * t**2)
-    rtfr = tfrfen(x)
-
-    plt.imshow(torch.log1p(rtfr.abs()).cpu().numpy(), aspect='auto', origin='lower')
-    plt.title("Spectrogramme avec fenetre aléatoire")
-    plt.colorbar()
-    plt.show()
 
