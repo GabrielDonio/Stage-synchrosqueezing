@@ -1,6 +1,8 @@
 import torch
 import matplotlib.pyplot as plt
-class Stfrgab(torch.nn.Module):
+from Transformation import Transformation
+
+class Stfrgab(Transformation):
     """
     implementation of the synchrosqueezing transform based on the Gabor transform.
     Args:
@@ -12,13 +14,11 @@ class Stfrgab(torch.nn.Module):
         rtfr (torch.Tensor): Synchrosqueezed time-frequency representation.
     """
     def __init__(self, M, eps=1e-6, L=10, gamma_K=1e-4):
-        super().__init__()
+        super().__init__(M, eps)
 
-        self.M = M
         self.L = L
         self.gamma_K = gamma_K
-        self.eps = eps
-
+ 
         self.K = 2 * L * torch.sqrt(torch.tensor(2.0) * torch.log(torch.tensor(1.0 / gamma_K)))
         self.A = 1 / (torch.sqrt(torch.tensor(2.0 * torch.pi)) * self.L)
         self.B = -1j * 2 * torch.pi / self.M

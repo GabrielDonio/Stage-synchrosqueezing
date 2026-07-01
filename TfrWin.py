@@ -1,8 +1,8 @@
 import torch
 import matplotlib.pyplot as plt
+from Transformation import Transformation
 
-
-class TfrWin(torch.nn.Module):
+class TfrWin(Transformation):
     """
     implementation of the time-frequency representation with a given window.
 
@@ -14,11 +14,9 @@ class TfrWin(torch.nn.Module):
         tfr (torch.Tensor): Time-frequency representation.
     """
     def __init__(self, M, window, eps=1e-6):
-        super().__init__()
-        self.M = M
+        super().__init__(M, eps)
         self.window = torch.as_tensor(window, dtype=torch.float32, device=window.device).reshape(-1)  # window
         self.len_win = window.shape[0]
-        self.eps = eps
 
     def forward(self, x):
         x = torch.as_tensor(x, dtype=torch.float32, device=x.device).reshape(-1)

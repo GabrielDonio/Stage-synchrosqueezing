@@ -1,13 +1,20 @@
 import torch
-import matplotlib.pyplot as plt
-class Tfrgab(torch.nn.Module):
-    def __init__(self, M, eps=1e-6, L=10, gamma_K=1e-4):
-        super().__init__()
+from Transformation import Transformation
+class Tfrgab(Transformation):
+    """
+    implementation of the time-frequency representation with a gabor window.
 
-        self.M = M
+    Args:
+        M (int): Number of frequency bins.
+        eps (float): Threshold for the time-frequency representation.
+        L (int): Parameter for the Gabor window.
+        gamma_K (float): threshold for the Parameter for the Gabor window.
+    """
+    def __init__(self, M, eps=1e-6, L=10, gamma_K=1e-4):
+        super().__init__(M, eps)
+
         self.L = L
         self.gamma_K = gamma_K
-        self.eps = eps
 
         self.K = 2 * L * torch.sqrt(torch.tensor(2.0) * torch.log(torch.tensor(1.0 / gamma_K)))
         self.A = 1 / (torch.sqrt(torch.tensor(2.0 * torch.pi)) * self.L)

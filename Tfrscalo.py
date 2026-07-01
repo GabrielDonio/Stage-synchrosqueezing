@@ -1,7 +1,7 @@
 import torch
 import numpy as np
-import matplotlib.pyplot as plt
-class Tfrscalo(torch.nn.Module):
+from Transformation import Transformation
+class Tfrscalo(Transformation):
     """
     Implementation of the time-frequency representation using a continuous wavelet transform with a Morlet wavelet.
     Args:
@@ -16,14 +16,12 @@ class Tfrscalo(torch.nn.Module):
         tfr (torch.Tensor): Time-frequency representation.
     """
     def __init__(self, M, T, Ts, w0, eps=1e-6, gamma_K=1e-5, as_range=[0.05, 1.5]):
-        super().__init__()
+        super().__init__(M, eps)
 
-        self.M = M
         self.T = T          
         self.Ts = Ts        
         self.w0 = w0        
         self.gamma_K = gamma_K
-        self.eps = eps
         self.as_range = as_range
         self.scales = torch.tensor(np.logspace(np.log10(as_range[0]), np.log10(as_range[1]), M))
 
@@ -62,18 +60,3 @@ class Tfrscalo(torch.nn.Module):
                 
         return tfr
 
-if __name__ == "__main__":
-    M = 64
-    T = 1.0
-    Ts = 0.01
-    f = 50
-    w0 = 5.0  
-    
-    scalo = Tfrscalo(M=M, T=T, Ts=Ts, w0=w0)
-    x = torch.cos(2*torch.pi*f*torch.linspace(0, 10, 500)**2) 
-    
-    tfr = scalo(x)
-    plt.imshow(torch.log1p(tfr.abs()).cpu().numpy(), aspect='auto', origin='lower')
-    plt.title("Scalogram)")
-    plt.colorbar()
-    plt.show() 

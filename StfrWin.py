@@ -1,6 +1,8 @@
 import torch
 import matplotlib.pyplot as plt
-class Stfrwin(torch.nn.Module):
+from Transformation import Transformation
+
+class Stfrwin(Transformation):
     """
     Implementation of the synchrosqueezing transform based on a custom window
     Args:
@@ -11,10 +13,7 @@ class Stfrwin(torch.nn.Module):
         rtfr (torch.Tensor): Synchrosqueezed time-frequency representation.
     """
     def __init__(self, M, window, eps=1e-6):
-        super().__init__()
-
-        self.M = M
-        self.eps = eps
+        super().__init__(M, eps)
 
         self.window = torch.as_tensor(window, dtype=torch.float32)
         self.len_win = self.window.shape[0]

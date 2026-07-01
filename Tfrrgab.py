@@ -1,13 +1,11 @@
 import torch
-import matplotlib.pyplot as plt
-class Tfrrgab(torch.nn.Module):
+from Transformation import Transformation
+class Tfrrgab(Transformation):
     def __init__(self, M, eps=1e-6, L=10, gamma_K=1e-4):
-        super().__init__()
+        super().__init__(M, eps)
 
-        self.M = M
         self.L = L
         self.gamma_K = gamma_K
-        self.eps = eps
 
         self.K = 2 * L * torch.sqrt(torch.tensor(2.0) * torch.log(torch.tensor(1.0 / gamma_K))) #seuillage pour la fenetre de gabor
         self.A = 1 / (torch.sqrt(torch.tensor(2.0 * torch.pi)) * self.L)
