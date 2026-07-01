@@ -1,5 +1,5 @@
 import torch
-from Reconstruction import Reconstruction
+from Reconstruction.Reconstruction import Reconstruction
 
 class Sync_rec(Reconstruction):
     def __init__(self, M, window=None, eps=1e-6, L=10, isgab=False):

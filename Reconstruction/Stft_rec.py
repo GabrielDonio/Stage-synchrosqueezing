@@ -1,5 +1,5 @@
 import torch 
-from Reconstruction import Reconstruction
+from Reconstruction.Reconstruction import Reconstruction
 from mmaxis import m_axis
 class Stft_rec(Reconstruction):
     """

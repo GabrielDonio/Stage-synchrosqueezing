@@ -1,8 +1,8 @@
 import torch
-from Stft_rec import Stft_rec
-from Sync_rec import Sync_rec
-from Tfrgab import Tfrgab
-from TfrWin import TfrWin
+from Reconstruction.Stft_rec import Stft_rec
+from Reconstruction.Sync_rec import Sync_rec
+from Transformation.Tfrgab import Tfrgab
+from Transformation.TfrWin import TfrWin
 #from StfrWin import Stfrwin
 from OptimizedVer.StfrWinopt import Stfrwin
 import matplotlib.pyplot as plt

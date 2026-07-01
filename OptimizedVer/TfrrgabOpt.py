@@ -1,6 +1,6 @@
 import torch
 from mmaxis import m_axis
-from Transformation import Transformation
+from Transformation.Transformation import Transformation
 
 class Tfrrgab(Transformation):
     def __init__(self, M, eps=1e-6, L=10, gamma_K=1e-4):
