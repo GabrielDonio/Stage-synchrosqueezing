@@ -10,7 +10,6 @@ class Tfrrgab(Transformation):
         self.L = L
         self.gamma_K = gamma_K
 
-        # Précalcul de K une fois pour toutes (évite les calculs d'entiers dans forward)
         self.K_val = int(torch.round(2 * L * torch.sqrt(torch.tensor(2.0) * torch.log(torch.tensor(1.0 / gamma_K)))).item())
         self.half_K = self.K_val // 2
         
