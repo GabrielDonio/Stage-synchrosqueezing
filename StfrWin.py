@@ -1,25 +1,16 @@
 import torch
-import matplotlib.pyplot as plt
 from Transformation import Transformation
+from mmaxis import m_axis
 
 class Stfrwin(Transformation):
-    """
-    Implementation of the synchrosqueezing transform based on a custom window
-    Args:
-        M (int): Number of frequency bins.
-        window (torch.Tensor): Custom window function.
-        eps (float): Threshold for the synchrosqueezing transform.
-    Returns:
-        rtfr (torch.Tensor): Synchrosqueezed time-frequency representation.
-    """
     def __init__(self, M, window, eps=1e-6):
         super().__init__(M, eps)
 
         self.window = torch.as_tensor(window, dtype=torch.float32)
         self.len_win = self.window.shape[0]
 
-        self.dw = -torch.gradient(self.window)[0] #derivative of the window
-
+        # Dérivée de la fenêtre (vitesse)
+        self.dw = -torch.gradient(self.window)[0] 
         self.B = -1j * 2 * torch.pi / self.M
 
     def forward(self, x):
@@ -32,9 +23,10 @@ class Stfrwin(Transformation):
 
         tfr = torch.zeros((self.M, N), dtype=torch.complex64, device=device)
         tfr_d = torch.zeros((self.M, N), dtype=torch.complex64, device=device)
-        rtfr = torch.zeros((self.M, N), dtype=torch.float32, device=device) 
 
-        mm = torch.arange(0, self.M, device=device)
+        rtfr = torch.zeros((self.M, N), dtype=torch.complex64, device=device) 
+
+        mm = m_axis(self.M, device=device)
 
         center = self.len_win // 2
         left = center
@@ -72,6 +64,7 @@ class Stfrwin(Transformation):
                         lost += torch.abs(tfr[m, n]).item() ** 2
                         continue
 
-                    rtfr[m_hat, n] = rtfr[m_hat, n] + tfr[m, n]/(2*torch.pi) * torch.exp(2*1j*torch.pi*mm[m]*nn/self.M)
+                    val = (tfr[m, n]) * torch.exp(2 * 1j * torch.pi * mm[m] * nn / self.M)
+                    rtfr[m_hat, n] = rtfr[m_hat, n] + val
                     
         return rtfr, lost

@@ -1,5 +1,6 @@
 import torch
 from Transformation import Transformation
+from mmaxis import m_axis
 class Tfrgab(Transformation):
     """
     implementation of the time-frequency representation with a gabor window.
@@ -27,7 +28,7 @@ class Tfrgab(Transformation):
         device = x.device      
         tfr = torch.zeros((self.M, N), dtype=torch.complex64, device=device)
 
-        mm = torch.arange(0, self.M, device=device)
+        mm = m_axis(self.M, device=device)
         
         for n in range(N):
             k_min = min(n, int(torch.round(self.K / 2).item()))

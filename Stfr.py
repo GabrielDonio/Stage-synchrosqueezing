@@ -1,5 +1,5 @@
 import torch
-import matplotlib.pyplot as plt
+from mmaxis import m_axis
 from Transformation import Transformation
 
 class Stfrgab(Transformation):
@@ -36,7 +36,7 @@ class Stfrgab(Transformation):
         tfr_d = torch.zeros((self.M, N), dtype=torch.complex64, device=device)
         
 
-        mm = torch.arange(0, self.M, device=device)
+        mm = m_axis(self.M, device=device)
         
         for n in range(N):
             k_min = min(n, int(torch.round(self.K / 2).item()))

@@ -1,6 +1,8 @@
 import torch
 import numpy as np
 from Transformation import Transformation
+from mmaxis import a_axis
+
 class Tfrscalo(Transformation):
     """
     Implementation of the time-frequency representation using a continuous wavelet transform with a Morlet wavelet.
@@ -12,10 +14,11 @@ class Tfrscalo(Transformation):
         eps (float): Threshold for the synchrosqueezing transform.
         gamma_K (float): Threshold for the Gaussian window.
         as_range (list): Range of scales for the wavelet transform.
+        is_freq (int): Whether to use frequency axis or time axis for the scales.
     Returns:
         tfr (torch.Tensor): Time-frequency representation.
     """
-    def __init__(self, M, T, Ts, w0, eps=1e-6, gamma_K=1e-5, as_range=[0.05, 1.5]):
+    def __init__(self, M, T, Ts, w0, eps=1e-6, gamma_K=1e-5, as_range=[0.05, 1.5], is_freq=0):
         super().__init__(M, eps)
 
         self.T = T          
@@ -23,7 +26,8 @@ class Tfrscalo(Transformation):
         self.w0 = w0        
         self.gamma_K = gamma_K
         self.as_range = as_range
-        self.scales = torch.tensor(np.logspace(np.log10(as_range[0]), np.log10(as_range[1]), M))
+        self.is_freq = is_freq
+        self.scales = a_axis(M, as_range, method=is_freq)
 
         self.sqrt_pi = torch.sqrt(torch.tensor(torch.pi))
         

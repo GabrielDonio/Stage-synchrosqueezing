@@ -1,4 +1,5 @@
 import torch
+from mmaxis import m_axis
 from Transformation import Transformation
 
 class Tfrgabhop(Transformation):
@@ -35,7 +36,7 @@ class Tfrgabhop(Transformation):
         
         window = 2 * self.L * torch.sqrt(torch.tensor(2.0) * torch.log(torch.tensor(1.0 / self.gamma_K))) #calcul de la taille de la fenêtre de Gabor
 
-        mm = torch.arange(0, self.M, device=device)
+        mm = m_axis(self.M, device=device)
         
         for frame_idx, n in enumerate(range(0, N, self.hop_length)):
             window_min = min(n, int(torch.round(window / 2).item()))

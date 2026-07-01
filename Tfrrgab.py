@@ -1,4 +1,5 @@
 import torch
+from mmaxis import m_axis
 from Transformation import Transformation
 class Tfrrgab(Transformation):
     def __init__(self, M, eps=1e-6, L=10, gamma_K=1e-4):
@@ -25,7 +26,7 @@ class Tfrrgab(Transformation):
         tfr_d = torch.zeros((self.M, N), dtype=torch.complex64, device=device)
         
 
-        mm = torch.arange(0, self.M, device=device)
+        mm = m_axis(self.M, device=device)
         
         for n in range(N):
             k_min = min(n, int(torch.round(self.K / 2).item()))
