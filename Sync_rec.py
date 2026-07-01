@@ -2,7 +2,7 @@ import torch
 from Reconstruction import Reconstruction
 
 class Sync_rec(Reconstruction):
-    def __init__(self, M, window=None, eps=1e-6, L=10, isgab=True):
+    def __init__(self, M, window=None, eps=1e-6, L=10, isgab=False):
         super().__init__(M, eps)
         self.L = L
         self.isgab = isgab
