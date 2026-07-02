@@ -1,29 +1,30 @@
 import torch
 import matplotlib.pyplot as plt
 #from Tfrrgab import Tfrrgab
-from OptimizedVer.TfrrgabOpt import Tfrrgab
+from Transformation.OptimizedVer.TfrrgabOpt import Tfrrgab
 #from Tfrgab import Tfrgab
-from OptimizedVer.TfrgabOpt import Tfrgab 
+from Transformation.OptimizedVer.TfrgabOpt import Tfrgab 
 #from Tfrgabhop import Tfrgabhop
 #from OptimizedVer.TfrgabhopOpt import Tfrgabhop
 from Transformation.Tfrhop import Tfrhop
 from Transformation.Tfrscalo import Tfrscalo
 #from Stfrgab import Stfrgab
-from OptimizedVer.StfrgabOpt import Stfrgab
-from OptimizedVer.StfrWinopt import Stfrwin
+from Transformation.OptimizedVer.StfrgabOpt import Stfrgab
+from Transformation.OptimizedVer.StfrWinopt import Stfrwin
 #from TfrWin import TfrWin
-from OptimizedVer.TfrWinOpt import TfrWin#
-from OptimizedVer.TfrrgabOpt import Tfrrgab
+from Transformation.OptimizedVer.TfrWinOpt import TfrWin#
+from Transformation.OptimizedVer.TfrrgabOpt import Tfrrgab
+from Transformation.OptimizedVer.StfrgabhopOpt import Stfrgabhop
 
 
 M=512
 f = 50
 fs=1000
 t = torch.arange(0,torch.pi, 1/fs)
-#x = torch.cos(2 * torch.pi * f * t**2)
-x = torch.zeros_like(t)
-x[10] = 1.0
-x[500] = 1.0
+x = torch.cos(2 * torch.pi * f * t**2)
+#x = torch.zeros_like(t)
+#x[10] = 1.0
+#x[500] = 1.0
 
 hann_window = torch.hann_window(32)
 
@@ -75,4 +76,12 @@ if __name__ == "__main__":
     plt.imshow(torch.log1p(rtfr.abs()).cpu().numpy(), aspect='auto', origin='lower')
     plt.title("Synchrosqueezed (hann window)")
     plt.colorbar()    
+    plt.show()
+    
+    stfrgabhop = Stfrgabhop(M, hop_length)
+    rtfr, lost = stfrgabhop(x)
+    
+    plt.imshow(torch.log1p(rtfr.abs()).cpu().numpy(), aspect='auto', origin='lower')
+    plt.title("Synchrosqueezed (Gabor with hop_length)")
+    plt.colorbar()
     plt.show()

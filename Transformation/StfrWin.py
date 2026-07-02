@@ -5,11 +5,11 @@ from mmaxis import m_axis
 class Stfrwin(Transformation):
     def __init__(self, M, window, eps=1e-6):
         super().__init__(M, eps)
-
+        self.M = M
         self.window = torch.as_tensor(window, dtype=torch.float32)
         self.len_win = self.window.shape[0]
 
-        # Dérivée de la fenêtre (vitesse)
+        # Dérivée de la fenêtre 
         self.dw = -torch.gradient(self.window)[0] 
         self.B = -1j * 2 * torch.pi / self.M
 
@@ -21,11 +21,7 @@ class Stfrwin(Transformation):
         w_v = self.window.to(device)
         dw_v = self.dw.to(device)
 
-        tfr = torch.zeros((self.M, N), dtype=torch.complex64, device=device)
-        tfr_d = torch.zeros((self.M, N), dtype=torch.complex64, device=device)
-
         rtfr = torch.zeros((self.M, N), dtype=torch.complex64, device=device) 
-
         mm = m_axis(self.M, device=device)
 
         center = self.len_win // 2
@@ -42,29 +38,25 @@ class Stfrwin(Transformation):
             
             w_slice = w_v[center - k_min : center + k_max + 1]
             dg_slice = dw_v[center - k_min : center + k_max + 1]
-            
             x_slice = x[n + k]
-            nn = n
 
             for m in range(self.M):
                 exp_B_mm_k = torch.exp(self.B * mm[m] * k)
-                exp_B_mm_nn = torch.exp(self.B * mm[m] * nn)
+                exp_B_mm_n = torch.exp(self.B * mm[m] * n)
                 
-                tfr[m, n] = exp_B_mm_nn * torch.sum(x_slice * w_slice * exp_B_mm_k)
+
+                tfr_m_n = exp_B_mm_n * torch.sum(x_slice * w_slice * exp_B_mm_k)
                 
-                if torch.abs(tfr[m, n]) > self.eps:
+                if torch.abs(tfr_m_n) > self.eps:
+                    tfr_d_m_n = exp_B_mm_n * torch.sum(x_slice * dg_slice * exp_B_mm_k)
 
-                    tfr_d[m, n] = exp_B_mm_nn * torch.sum(x_slice * dg_slice * exp_B_mm_k)
-
-                    m_hat = m + int(torch.round((self.M / (2 * torch.pi)) * torch.imag(tfr_d[m, n] / tfr[m, n])).item())
+                    m_hat = m + int(torch.round((self.M / (2 * torch.pi)) * torch.imag(tfr_d_m_n / tfr_m_n)).item())
  
-                    m_out_of_bounds = (m_hat < 0) or (m_hat >= self.M)
-                    
-                    if m_out_of_bounds:
-                        lost += torch.abs(tfr[m, n]).item() ** 2
+                    if (m_hat < 0) or (m_hat >= self.M):
+                        lost += torch.abs(tfr_m_n).item() ** 2
                         continue
 
-                    val = tfr[m, n] * torch.exp(2 * 1j * torch.pi * mm[m] * nn / self.M)
+                    val = tfr_m_n * torch.exp(2 * 1j * torch.pi * mm[m] * n / self.M)
                     rtfr[m_hat, n] = rtfr[m_hat, n] + val
                     
         return rtfr, lost

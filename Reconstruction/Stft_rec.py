@@ -10,7 +10,7 @@ class Stft_rec(Reconstruction):
         eps (float): Threshold for the reconstruction.
         window (torch.Tensor): The window function.
     """
-    def __init__(self, M,window=None, eps=1e-6, L=10, isgab=True):
+    def __init__(self, M,window=None, eps=1e-6, L=10, isgab=False):
         super().__init__(M, eps)
         self.L = L
         self.isgab = isgab

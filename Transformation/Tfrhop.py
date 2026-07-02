@@ -11,7 +11,7 @@ class Tfrhop(Transformation):
         self.omega_coef = -1j * 2 * torch.pi / self.M
 
     def forward(self, x):
-        x = torch.as_tensor(x, dtype=torch.float32, device=x.device).reshape(-1)
+        x = torch.as_tensor(x, dtype=torch.complex64, device=x.device).reshape(-1)
         N = x.shape[0]
         device = x.device
 
