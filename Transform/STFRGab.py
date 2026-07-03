@@ -1,12 +1,12 @@
 import torch
 from Transform.Transformation import Transformation
 
-class Stfrgabhop(Transformation):
+
+class Stfrgab(Transformation):
     """
-    Implementation of the Synchrosqueezing transform based on the Gabor transform
-    with support for hop_length.
+    Synchrosqueezed Gabor transform with optional hop length.
     """
-    def __init__(self, M, hop_length, eps=1e-6, L=10, gamma_K=1e-4):
+    def __init__(self, M, hop_length=1, eps=1e-6, L=10, gamma_K=1e-4):
         super().__init__(M, eps)
 
         self.M = M
@@ -14,7 +14,11 @@ class Stfrgabhop(Transformation):
         self.gamma_K = gamma_K
         self.hop_length = hop_length
 
-        self.K_val = int(torch.round(2 * L * torch.sqrt(torch.tensor(2.0) * torch.log(torch.tensor(1.0 / gamma_K)))).item())
+        self.K_val = int(
+            torch.round(
+                2 * L * torch.sqrt(torch.tensor(2.0) * torch.log(torch.tensor(1.0 / gamma_K)))
+            ).item()
+        )
         self.half_K = self.K_val // 2
         self.len_win = 2 * self.half_K + 1
 
@@ -22,35 +26,35 @@ class Stfrgabhop(Transformation):
         self.C = -1 / (2 * self.L**2)
 
         k = torch.arange(-self.half_K, self.half_K + 1, dtype=torch.float32)
-        self.g = self.A * torch.exp(self.C * (k ** 2))       # Gabor
-        self.dg = (self.L ** -2) * k * self.g                # Dérivée de Gabor
+        self.g = self.A * torch.exp(self.C * (k ** 2))
+        self.dg = (self.L ** -2) * k * self.g
 
     def forward(self, x):
         x = torch.as_tensor(x, dtype=torch.float32, device=x.device).reshape(-1)
-        N = x.shape[0]
+        self.N_input = x.shape[0] 
         device = x.device
-        
+
         g_v = self.g.to(device)
         dg_v = self.dg.to(device)
 
         x_3d = x.unsqueeze(0).unsqueeze(0)
-        x_padded_3d = torch.nn.functional.pad(x_3d, (self.half_K, self.half_K), mode='reflect')
+        x_padded_3d = torch.nn.functional.pad(x_3d, (self.half_K, self.half_K), mode="reflect")
         x_padded = x_padded_3d.squeeze(0).squeeze(0)
-        
-        n_vec = torch.arange(0, N, self.hop_length, device=device)
+
+        n_vec = torch.arange(0, self.N_input, self.hop_length, device=device)
         num_frames = n_vec.shape[0]
 
         x_frames = x_padded.unfold(0, self.len_win, self.hop_length)[:num_frames]
 
-        tfr_fft = torch.fft.fft(x_frames * g_v, n=self.M, dim=1).t()   
+        tfr_fft = torch.fft.fft(x_frames * g_v, n=self.M, dim=1).t()
         tfr_d_fft = torch.fft.fft(x_frames * dg_v, n=self.M, dim=1).t()
 
         m_vec = torch.arange(self.M, device=device).view(-1, 1)
         fft_phase_correction = torch.exp(2j * torch.pi * m_vec * self.half_K / self.M)
-        
+
         tfr_base = tfr_fft * fft_phase_correction
         tfr_d_base = tfr_d_fft * fft_phase_correction
-        
+
         magnitude = torch.abs(tfr_base)
         mask = magnitude > self.eps
 
@@ -59,19 +63,37 @@ class Stfrgabhop(Transformation):
 
         m_indices = torch.arange(self.M, device=device).view(-1, 1).expand(self.M, num_frames)
         m_hat = m_indices + torch.round(v_m * self.M / (2 * torch.pi)).long()
-        
+
         valid_bounds = (m_hat >= 0) & (m_hat < self.M) & mask
         lost_mask = mask & (~valid_bounds)
         lost = torch.sum(magnitude[lost_mask] ** 2).item()
 
         rtfr = torch.zeros((self.M, num_frames), dtype=torch.complex64, device=device)
-        
+
         indices_valides = torch.nonzero(valid_bounds, as_tuple=True)
         m_dest = m_hat[indices_valides]
-        n_dest = indices_valides[1] 
+        n_dest = indices_valides[1]
         flat_dest_indices = m_dest * num_frames + n_dest
-        flat_valeurs = tfr_base[indices_valides] / (2 * torch.pi)
         
+        flat_valeurs = tfr_base[indices_valides] / (2 * torch.pi)
+
         rtfr.view(-1).index_add_(0, flat_dest_indices, flat_valeurs)
-                    
+
         return rtfr, lost
+
+    def rec(self, rtfr):
+        device = rtfr.device
+        M, num_frames = rtfr.shape
+
+        if self.hop_length != 1:
+            print("On ne peut pas recconstruire avec hop lenth > 1")
+
+        h_0 = self.g[self.half_K].to(device)
+
+        scale = (2 * torch.pi) / (M * h_0)
+
+        x_reconstructed = torch.sum(rtfr, dim=0).real * scale
+        if hasattr(self, 'N_input') and self.hop_length == 1:
+            return x_reconstructed[:self.N_input]
+
+        return x_reconstructed

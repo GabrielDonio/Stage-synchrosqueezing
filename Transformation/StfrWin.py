@@ -1,5 +1,5 @@
 import torch
-from Transformation.Transformation import Transformation
+from Transform.Transformation import Transformation
 from mmaxis import m_axis
 
 class Stfrwin(Transformation):

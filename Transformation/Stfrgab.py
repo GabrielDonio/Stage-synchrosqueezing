@@ -1,6 +1,6 @@
 import torch
 from mmaxis import m_axis
-from Transformation.Transformation import Transformation
+from Transform.Transformation import Transformation
 
 class Stfrgab(Transformation):
     """

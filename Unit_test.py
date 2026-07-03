@@ -1,19 +1,15 @@
 import torch
 import matplotlib.pyplot as plt
-#from Tfrrgab import Tfrrgab
-from Transformation.OptimizedVer.TfrrgabOpt import Tfrrgab
-#from Tfrgab import Tfrgab
-from Transformation.OptimizedVer.TfrgabOpt import Tfrgab 
-#from Tfrgabhop import Tfrgabhop
-#from OptimizedVer.TfrgabhopOpt import Tfrgabhop
-from Transformation.Tfrhop import Tfrhop
+
+from Transform.Tfrgab import Tfrgab
+from Transform.TfrWIn import TfrWin
+from Transform.RFgab import Rfgab
+from Transform.RFWin import RfWin
+from Transform.STFRGab import Stfrgab as STfrgab
+from Transform.STFRWin import Stfrwin as STfrwin
 from Transformation.Tfrscalo import Tfrscalo
-#from Stfrgab import Stfrgab
 from Transformation.OptimizedVer.StfrgabOpt import Stfrgab
 from Transformation.OptimizedVer.StfrWinopt import Stfrwin
-#from TfrWin import TfrWin
-from Transformation.OptimizedVer.TfrWinOpt import TfrWin#
-from Transformation.OptimizedVer.TfrrgabOpt import Tfrrgab
 from Transformation.OptimizedVer.StfrgabhopOpt import Stfrgabhop
 
 
@@ -21,67 +17,32 @@ M=512
 f = 50
 fs=1000
 t = torch.arange(0,torch.pi, 1/fs)
-x = torch.cos(2 * torch.pi * f * t**2)
-#x = torch.zeros_like(t)
-#x[10] = 1.0
-#x[500] = 1.0
+x = torch.cos(2 * torch.pi * f * t**2) + torch.cos(2*2 * torch.pi * f * t**2)
+
+x[250] = 1.0
+x[700] = 1.0
 
 hann_window = torch.hann_window(32)
 
 if __name__ == "__main__":
-    hop_length = 32
-    tfrhop = Tfrhop(M, hann_window, hop_length)
-    rtfr = tfrhop(x)
-    plt.imshow(torch.log1p(rtfr.abs()).cpu().numpy(), aspect='auto', origin='lower')
-    plt.title("Spectrogramme avec hop_length (Gabor)")
+    tfr = STfrwin(M, window=hann_window, hop_length=1)
+    tfr_result,lost= tfr.forward(x)
+
+
+    plt.imshow(torch.abs(tfr_result), aspect='auto', origin='lower')
     plt.colorbar()
+    plt.title('TFR Window')
+    plt.xlabel('Time')
+    plt.ylabel('Frequency')
     plt.show()
     
-    tfrgab = Tfrgab(M)
-    rtfr = tfrgab(x)
-    
-    plt.imshow(torch.log1p(rtfr.abs()).cpu().numpy(), aspect='auto', origin='lower')
-    plt.title("Spectrogram (Gabor)")
-    plt.colorbar()
+    x_est = tfr.rec(tfr_result)
+    print("Reconstruction error:", torch.norm(x - x_est).item())
+    plt.plot(t.cpu().numpy(), x.cpu().numpy())
+    plt.plot(t.cpu().numpy(), x_est.cpu().numpy(), alpha=0.7)
+    plt.title('reconstructed signal')
+    plt.xlabel('Time')
+    plt.ylabel('Frequency')
     plt.show()
     
-    tfrrgab = Tfrrgab(M)
-    rtfr, lost = tfrrgab(x)
-    print(lost)
     
-    plt.imshow(torch.log1p(rtfr.abs()).cpu().numpy(), aspect='auto', origin='lower')
-    plt.title("Spectrogramme Réassigné (Gabor)")
-    plt.colorbar()
-    plt.show()
-    
-    stfrgab = Stfrgab(M)
-    rtfr, lost = stfrgab(x)
-    
-    plt.imshow(torch.log1p(rtfr.abs()).cpu().numpy(), aspect='auto', origin='lower')
-    plt.title("Synchrosqueezed (Gabor)")
-    plt.colorbar()
-    plt.show()
-    
-    tfrwin = TfrWin(M, hann_window)
-    rtfr = tfrwin(x)
-    
-    plt.imshow(torch.log1p(rtfr.abs()).cpu().numpy(), aspect='auto', origin='lower')
-    plt.title("Spectrogramme avec fenetre aléatoire")
-    plt.colorbar()
-    plt.show()
-    
-    stfrwin = Stfrwin(M, hann_window)
-    rtfr, lost = stfrwin(x)
-    
-    plt.imshow(torch.log1p(rtfr.abs()).cpu().numpy(), aspect='auto', origin='lower')
-    plt.title("Synchrosqueezed (hann window)")
-    plt.colorbar()    
-    plt.show()
-    
-    stfrgabhop = Stfrgabhop(M, hop_length)
-    rtfr, lost = stfrgabhop(x)
-    
-    plt.imshow(torch.log1p(rtfr.abs()).cpu().numpy(), aspect='auto', origin='lower')
-    plt.title("Synchrosqueezed (Gabor with hop_length)")
-    plt.colorbar()
-    plt.show()

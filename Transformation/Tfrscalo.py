@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-from Transformation.Transformation import Transformation
+from Transform.Transformation import Transformation
 from mmaxis import a_axis
 
 class Tfrscalo(Transformation):

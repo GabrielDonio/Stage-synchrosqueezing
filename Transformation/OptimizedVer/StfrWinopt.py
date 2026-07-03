@@ -1,5 +1,5 @@
 import torch
-from Transformation.Transformation import Transformation
+from Transform.Transformation import Transformation
 
 class Stfrwin(Transformation):
     def __init__(self, M, window, eps=0.01):

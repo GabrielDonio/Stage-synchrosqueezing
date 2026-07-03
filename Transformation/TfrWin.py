@@ -1,6 +1,6 @@
 import torch
 import matplotlib.pyplot as plt
-from Transformation.Transformation import Transformation
+from Transform.Transformation import Transformation
 from mmaxis import m_axis
 
 class TfrWin(Transformation):
