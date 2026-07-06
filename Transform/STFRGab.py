@@ -1,4 +1,5 @@
 import torch
+from mmaxis import m_axis
 from Transform.Transformation import Transformation
 
 
@@ -30,7 +31,7 @@ class Stfrgab(Transformation):
         self.dg = (self.L ** -2) * k * self.g
 
     def forward(self, x):
-        x = torch.as_tensor(x, dtype=torch.float32, device=x.device).reshape(-1)
+        x = torch.as_tensor(x, dtype=torch.complex64, device=x.device).reshape(-1)
         self.N_input = x.shape[0] 
         device = x.device
 
@@ -49,7 +50,8 @@ class Stfrgab(Transformation):
         tfr_fft = torch.fft.fft(x_frames * g_v, n=self.M, dim=1).t()
         tfr_d_fft = torch.fft.fft(x_frames * dg_v, n=self.M, dim=1).t()
 
-        m_vec = torch.arange(self.M, device=device).view(-1, 1)
+        #m_vec = torch.arange(self.M, device=device).view(-1, 1)
+        m_vec = m_axis(self.M, device=device).view(-1, 1)
         fft_phase_correction = torch.exp(2j * torch.pi * m_vec * self.half_K / self.M)
 
         tfr_base = tfr_fft * fft_phase_correction

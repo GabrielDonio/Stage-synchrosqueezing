@@ -1,4 +1,5 @@
 import torch
+from mmaxis import m_axis
 from Transform.Transformation import Transformation
 
 
@@ -15,7 +16,7 @@ class TfrWin(Transformation):
         self.right = self.len_win - self.center - 1
 
     def forward(self, x):
-        x = torch.as_tensor(x, dtype=torch.float32, device=x.device).reshape(-1)
+        x = torch.as_tensor(x, dtype=torch.complex64, device=x.device).reshape(-1)
         N = x.shape[0]
         device = x.device
 
@@ -50,7 +51,8 @@ class TfrWin(Transformation):
         N_target = getattr(self, 'N_input', (num_frames - 1) * self.hop_length + 1)
 
         n_vec = torch.arange(0, num_frames * self.hop_length, self.hop_length, device=device)[:num_frames]
-        m_vec = torch.arange(M, device=device).view(-1, 1)
+        #m_vec = torch.arange(M, device=device).view(-1, 1)
+        m_vec = m_axis(M, device=device).view(-1, 1)
         phase_correction = torch.exp(
             1j * 2 * torch.pi / M * m_vec * (self.left - n_vec.view(1, -1))
         )
@@ -65,7 +67,7 @@ class TfrWin(Transformation):
             h_0 = w_v[self.left]
 
             if torch.abs(h_0) < self.eps:
-                raise ValueError("Le centre de la fenêtre h(0) est nul ou trop proche de 0, reconstruction impossible via cette formule.")
+                raise ValueError("Le centre de la fenêtre est nul.")
                 
             x_reconstructed = x_at_t / h_0
             

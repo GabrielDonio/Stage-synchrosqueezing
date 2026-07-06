@@ -33,7 +33,7 @@ class Rfgab(Transformation):
         self.tg = -k * self.g
 
     def forward(self, x):
-        x = torch.as_tensor(x, dtype=torch.float32, device=x.device).reshape(-1)
+        x = torch.as_tensor(x, dtype=torch.complex64, device=x.device).reshape(-1)
         device = x.device
 
         N = x.shape[0]

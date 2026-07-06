@@ -1,4 +1,5 @@
 import torch
+from mmaxis import m_axis
 from Transform.Transformation import Transformation
 
 
@@ -12,12 +13,12 @@ class Stfrwin(Transformation):
         self.window = torch.as_tensor(window, dtype=torch.float32).reshape(-1)
         self.len_win = self.window.shape[0]
         self.hop_length = hop_length
-        self.dw = -torch.gradient(self.window)[0]
+        self.dw = -torch.gradient(self.window)[0]#derive de la fenetre
         
         self.center = self.len_win // 2
 
     def forward(self, x):
-        x = torch.as_tensor(x, dtype=torch.float32, device=x.device).reshape(-1)
+        x = torch.as_tensor(x, dtype=torch.complex64, device=x.device).reshape(-1)
         self.N_input = x.shape[0] 
         device = x.device
 
@@ -37,7 +38,8 @@ class Stfrwin(Transformation):
         tfr = torch.fft.fft(tfr_segments, n=self.M, dim=1).t()
         tfr_d = torch.fft.fft(tfr_d_segments, n=self.M, dim=1).t()
 
-        m_vec = torch.arange(self.M, device=device).view(-1, 1)
+        #m_vec = torch.arange(self.M, device=device).view(-1, 1)
+        m_vec = m_axis(self.M, device=device).view(-1, 1)
         fft_phase_correction = torch.exp(2j * torch.pi * m_vec * self.center / self.M)
 
         tfr = tfr * fft_phase_correction
@@ -48,14 +50,13 @@ class Stfrwin(Transformation):
         mask = magnitude > (self.eps * max_per_col)
 
         v_m = torch.zeros_like(tfr, dtype=torch.float32)
-        v_m[mask] = torch.imag(tfr_d[mask] / tfr[mask])
-
+        v_m[mask] = torch.imag(tfr_d[mask] / tfr[mask])#application de la formule de synchrosqueezing 
         m_indices = torch.arange(self.M, device=device).view(-1, 1).expand(self.M, num_frames)
-        m_hat = m_indices + torch.round(v_m * self.M / (2 * torch.pi)).long()
+        m_hat = m_indices + torch.round(v_m * self.M / (2 * torch.pi)).long() #on calcul les points de synchrosqueezing
 
         valid_bounds = (m_hat >= 0) & (m_hat < self.M) & mask
         lost_mask = mask & (~valid_bounds)
-        lost = torch.sum(magnitude[lost_mask] ** 2).item()
+        lost = torch.sum(magnitude[lost_mask] ** 2).item()#energie perdue lors du synchrosqueezing numérique
 
         rtfr = torch.zeros((self.M, num_frames), dtype=torch.complex64, device=device)
 

@@ -1,4 +1,5 @@
 import torch
+import torchaudio
 import matplotlib.pyplot as plt
 
 from Transform.Tfrgab import Tfrgab
@@ -7,42 +8,44 @@ from Transform.RFgab import Rfgab
 from Transform.RFWin import RfWin
 from Transform.STFRGab import Stfrgab as STfrgab
 from Transform.STFRWin import Stfrwin as STfrwin
-from Transformation.Tfrscalo import Tfrscalo
-from Transformation.OptimizedVer.StfrgabOpt import Stfrgab
-from Transformation.OptimizedVer.StfrWinopt import Stfrwin
-from Transformation.OptimizedVer.StfrgabhopOpt import Stfrgabhop
+from Transform.Scalo import Scalo
+
+#signal_path = "/Users/macos/Documents/Audio python/Data audio/705944__josefpres__guitar-tones-005-string-b-22-tone-a57.wav"
+
+#signal, fs = torchaudio.load(signal_path)
+#signal = signal[0]  
 
 
-M=512
-f = 50
-fs=1000
-t = torch.arange(0,torch.pi, 1/fs)
-x = torch.cos(2 * torch.pi * f * t**2) + torch.cos(2*2 * torch.pi * f * t**2)
+M=1024
 
-x[250] = 1.0
-x[700] = 1.0
+fs = 300
+f_base = 100
+f_mod =3
+mod_amplitude = 10
+amplitude = 1
+T = 0.1 
+Ts = 1/300
+w0 = 2 * torch.pi * 50     
 
-hann_window = torch.hann_window(32)
+t = torch.arange(0, 1, 1/fs)
+
+phase1 = 2 * torch.pi * ( f_base * t- (mod_amplitude / (2 * torch.pi * f_mod)) * torch.cos(2 * torch.pi * f_mod * t))
+x = amplitude * torch.exp(1j * phase1) 
+eps = torch.randn_like(x) 
+x += eps
+#x[250] = 1.0
+#x[700] = 1.0
+
+hann_window = torch.hann_window(16)
+tfr = Rfgab(M, hop_length=1)  
 
 if __name__ == "__main__":
-    tfr = STfrwin(M, window=hann_window, hop_length=1)
-    tfr_result,lost= tfr.forward(x)
 
-
-    plt.imshow(torch.abs(tfr_result), aspect='auto', origin='lower')
-    plt.colorbar()
-    plt.title('TFR Window')
-    plt.xlabel('Time')
-    plt.ylabel('Frequency')
-    plt.show()
+    tfr,lost=tfr.forward(x)
     
-    x_est = tfr.rec(tfr_result)
-    print("Reconstruction error:", torch.norm(x - x_est).item())
-    plt.plot(t.cpu().numpy(), x.cpu().numpy())
-    plt.plot(t.cpu().numpy(), x_est.cpu().numpy(), alpha=0.7)
-    plt.title('reconstructed signal')
-    plt.xlabel('Time')
-    plt.ylabel('Frequency')
+    plt.imshow(torch.abs(tfr).numpy(), aspect='auto', origin='lower')
+    plt.colorbar(label='magnitude')
+    plt.xlabel('Time (s)')
+    plt.ylabel('Frequency (Hz)')
     plt.show()
-    
     

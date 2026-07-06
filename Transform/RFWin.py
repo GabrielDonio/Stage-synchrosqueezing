@@ -1,4 +1,5 @@
 import torch
+from mmaxis import m_axis
 from Transform.Transformation import Transformation
 
 
@@ -20,11 +21,11 @@ class RfWin(Transformation):
 
         k = torch.arange(-self.left, self.right + 1, dtype=torch.float32)
 
-        self.dw = torch.gradient(self.window)[0]
+        self.dw = -torch.gradient(self.window)[0]
         self.tw = -k * self.window
 
     def forward(self, x):
-        x = torch.as_tensor(x, dtype=torch.float32, device=x.device).reshape(-1)
+        x = torch.as_tensor(x, dtype=torch.complex64, device=x.device).reshape(-1)
         device = x.device
         N = x.shape[0]
 
@@ -58,7 +59,7 @@ class RfWin(Transformation):
 
         n_hat = col_indices - torch.round(tau_m / self.hop_length).long()
 
-        m_hat = m_indices - torch.round(v_m * self.M / (2 * torch.pi)).long()
+        m_hat = m_indices + torch.round(v_m * self.M / (2 * torch.pi)).long()
 
         valid_bounds = (n_hat >= 0) & (n_hat < num_frames) & (m_hat >= 0) & (m_hat < self.M) & mask
         lost = torch.sum(magnitude_sq[mask & ~valid_bounds]).item()
