@@ -9,6 +9,8 @@ from Transform.Tfrgab import Tfrgab
 from Transform.STFRGab import Stfrgab
 from Transform.STFRWin import Stfrwin
 
+from Transform.RFWin import RfWin
+from Transform.RFgab import Rfgab
 
 signal_path = "batsig.sig"
 result_path = Path("/Users/macos/Documents/Stage STFT/Resultat plot")
@@ -16,14 +18,16 @@ result_path.mkdir(parents=True, exist_ok=True)
 
 fs = 1.0 / 7e-6
 M = 2048
-len_win = 32
+len_win = 64
 window = torch.hann_window(len_win)
 
 ops = {
-    "TfrWin (hann window 32 samples) ": TfrWin(M, hop_length=1, window=window),
+    "TfrWin (hann window " + str(len_win) + " samples) ": TfrWin(M, hop_length=1, window=window),
     "Tfrgab": Tfrgab(M, hop_length=1),
     "STFRGab": Stfrgab(M, hop_length=1, gamma_K=1e-8),
-    "STFRWin (hann window 32 samples)": Stfrwin(M, hop_length=1, window=window),
+    "STFRWin (hann window " + str(len_win) + " samples)": Stfrwin(M, hop_length=1, window=window),
+    "RFWin (hann window " + str(len_win) + " samples)": RfWin(M, hop_length=1, window=window),
+    "RFgab": Rfgab(M, hop_length=1),
 }
 
 
@@ -92,6 +96,17 @@ def save_signal_figure(x, x_hat, title, filename):
 
 if __name__ == "__main__":
     x = load_sig_file(signal_path)
+    t = torch.arange(len(x)) / fs
+    title = "Original Signal"
+    plt.figure(figsize=(12, 4))
+    plt.plot(t.numpy(), x.cpu().numpy(), label="Original")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Amplitude")
+    plt.title(title)
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(result_path / "original_signal.png", dpi=200, bbox_inches="tight")
+    plt.show()
 
     results = []
 
@@ -120,7 +135,7 @@ if __name__ == "__main__":
 
         title_tfr = f"{name} | Renyi={entropy:.2f}"
         if lost is not None:
-            title_tfr += f" | Lost={lost:.2f}"
+            title_tfr += f" | Lost energy={lost:.2f}"
         save_tfr_figure(
             tfr=tfr,
             title=title_tfr,
