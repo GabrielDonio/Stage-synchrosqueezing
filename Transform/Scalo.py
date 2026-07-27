@@ -1,67 +1,97 @@
 import torch
+import math 
 from Transform.Transformation import Transformation
-from mmaxis import a_axis
+
 
 class Scalo(Transformation):
-    def __init__(self, M, T, Ts, w0, eps=1e-6, gamma_K=1e-5, as_range=(0.05, 1.5), is_freq=0, hop_length=1):
-        super().__init__(M, eps)
-        self.M, self.T, self.Ts, self.w0 = M, T, Ts, w0
-        self.hop_length = hop_length
-        self.scales = a_axis(M, as_range, method=is_freq)
-        self.Cpsi = self._compute_Cpsi()
-        self.kernels = self._precompute_kernels() 
+    def __init__(self, M, Ts=1.0, w0=5.0, T_param=1.0, as_range=[0.05, 1.5], gamma_K=1e-5, is_freq=0, eps=1e-6):
 
-    def _compute_Cpsi(self):
-        span = 10.0 
-        omega = torch.linspace(
-            max(self.w0 - span, 1e-4),
-            self.w0 + span,
-            20000
-        )
-        return torch.trapz(torch.exp(-0.5 * (omega - self.w0) ** 2) / omega, omega).real
-    def _precompute_kernels(self):
-        a_max = self.scales.max()
-        K_max = int(torch.sqrt(2 * torch.log(torch.tensor(1.0/1e-6))) * (self.T / self.Ts) * a_max)
-        self.len_kernel = 2 * K_max + 1
-        
-        kernels = torch.zeros((self.M, self.len_kernel), dtype=torch.complex64)
-        tau = torch.arange(-K_max, K_max + 1) * self.Ts
-        
-        for m in range(self.M):
-            a = self.scales[m]
-            norm = self.Ts / torch.sqrt(torch.abs(a) * self.T * torch.sqrt(torch.tensor(torch.pi)))
-            gauss = torch.exp(-(tau ** 2) / (2 * (self.T * a) ** 2))
-            osc = torch.exp(-1j * self.w0 * tau / a)
-            kernels[m, :] = norm * gauss * torch.conj(osc) 
-        return kernels
+        super().__init__(M, eps)
+        self.M = M
+        self.Ts = Ts
+        self.w0 = w0
+        self.T_param = T_param
+        self.as_range = as_range
+        self.gamma_K = gamma_K
+        self.is_freq = is_freq
+
+        self.as_axis = self._a_axis(self.M, self.as_range, self.is_freq)
+
+    def _a_axis(self, M, as_range, method):
+        if method == 0:  
+            start, end = math.log10(as_range[0]), math.log10(as_range[1])
+            return torch.logspace(start, end, steps=M, base=10.0)
+        elif method == 1:  
+            return 1.0 / torch.linspace(as_range[0], as_range[1], steps=M)
+        elif method == 2: 
+            return torch.linspace(as_range[0], as_range[1], steps=M)
+        else:
+            raise ValueError("Méthode 'is_freq' non reconnue (doit être 0, 1 ou 2).")
 
     def forward(self, x):
+
+        x = torch.as_tensor(x, dtype=torch.complex64, device=x.device).reshape(-1)
+        N = x.shape[0]
         device = x.device
-        pad = self.len_kernel // 2
-        x_padded = torch.nn.functional.pad(x.view(1, -1), (pad, pad), mode='reflect').squeeze(0)
         
-        frames = x_padded.unfold(0, self.len_kernel, self.hop_length)
-        
-        W = torch.matmul(self.kernels.to(device), frames.t().to(device))
-        
-        return W
+        as_v = self.as_axis.to(device) 
+        sqrt_pi = math.sqrt(math.pi)
 
-    def rec(self, W):
-        scales = self.scales.to(W.device)
+        tfr = torch.zeros((self.M, N), dtype=torch.complex64, device=device)
 
+        for m in range(self.M):
+            a = as_v[m]
+
+            K = round(math.sqrt(2 * math.log(1 / self.gamma_K)) * (self.T_param / self.Ts) * a.item())
+            
+            if K <= 0:
+                K = 1
+
+            k = torch.arange(-K, K + 1, device=device, dtype=torch.float32)
+            tau = k * self.Ts
+
+            gauss = torch.exp(- (tau ** 2) / (2 * (self.T_param * a) ** 2))
+            oscillation = torch.exp(-1j * self.w0 * tau / a)
+            wavelet = gauss * oscillation
+
+            norm_fact = self.Ts / (torch.sqrt(torch.abs(a) * self.T_param * sqrt_pi))
+            wavelet_normalized = norm_fact * wavelet
+
+
+            x_padded = torch.nn.functional.pad(
+                x.unsqueeze(0).unsqueeze(0), (K, K), mode="constant", value=0.0
+            ).squeeze(0).squeeze(0)
+
+            x_frames = x_padded.unfold(0, 2 * K + 1, 1)[:N]
+
+            tfr[m, :] = torch.sum(x_frames * wavelet_normalized, dim=1)
+
+        return tfr
+
+    def rec(self, tfr):
+
+        device = tfr.device
+        N = tfr.shape[1]
+        as_v = self.as_axis.to(device)
+
+        K_int = 500
+        dw = 0.001
+        w = torch.arange(self.w0 - K_int, (self.w0 + K_int) + self.eps, dw, device=device)
+        
+        integrand = (1.0 / w) * torch.exp(-((self.w0 - w) ** 2 * self.T_param ** 2) / 2.0)
+        C_psi = math.sqrt(2 * self.T_param * math.sqrt(math.pi)) * torch.sum(integrand) * dw
+
+        ds = torch.zeros_like(as_v)
         if self.M > 1:
-            log_scales = torch.log(scales)
-            d_log_a = (log_scales[-1] - log_scales[0]) / (self.M - 1)
-            delta_a = scales * d_log_a
+            ds[0] = torch.abs(as_v[1] - as_v[0])
+            ds[1:] = torch.abs(torch.diff(as_v))
         else:
-            delta_a = torch.tensor([1.0], device=W.device, dtype=scales.dtype)
+            ds[0] = 1.0
 
-        delta_a = delta_a.view(-1, 1)
-        scales = scales.view(-1, 1)
+        as_mat = as_v.view(-1, 1)  
+        ds_mat = ds.view(-1, 1)     
 
-        x_rec = torch.sum(
-            W * (delta_a / (torch.abs(scales) ** 1.5)),
-            dim=0
-        ) / self.Cpsi
+        integrand_reconstruction = tfr * (as_mat ** (-1.5)) * ds_mat
+        s_hat = (1.0 / C_psi) * torch.sum(integrand_reconstruction, dim=0)
 
-        return x_rec.real
+        return torch.real(s_hat)

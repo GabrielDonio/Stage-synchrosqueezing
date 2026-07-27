@@ -3,10 +3,8 @@ from mmaxis import m_axis
 from Transform.Transformation import Transformation
 
 
-class Stfrgab(Transformation):
-    """
-    Synchrosqueezed Gabor transform with optional hop length.
-    """
+class TSST_gab(Transformation):
+
     def __init__(self, M, hop_length=1, eps=1e-6, L=10, gamma_K=1e-4):
         super().__init__(M, eps)
 
@@ -28,7 +26,7 @@ class Stfrgab(Transformation):
 
         k = torch.arange(-self.half_K, self.half_K + 1, dtype=torch.float32)
         self.g = self.A * torch.exp(self.C * (k ** 2))
-        self.dg = (self.L ** -2) * k * self.g
+        self.tg = -k * self.g  
 
     def forward(self, x):
         x = torch.as_tensor(x, dtype=torch.complex64, device=x.device).reshape(-1)
@@ -36,7 +34,7 @@ class Stfrgab(Transformation):
         device = x.device
 
         g_v = self.g.to(device)
-        dg_v = self.dg.to(device)
+        tg_v = self.tg.to(device)
 
         x_3d = x.unsqueeze(0).unsqueeze(0)
         x_padded_3d = torch.nn.functional.pad(x_3d, (self.half_K, self.half_K), mode="reflect")
@@ -48,33 +46,40 @@ class Stfrgab(Transformation):
         x_frames = x_padded.unfold(0, self.len_win, self.hop_length)[:num_frames]
 
         tfr_fft = torch.fft.fft(x_frames * g_v, n=self.M, dim=1).t()
-        tfr_d_fft = torch.fft.fft(x_frames * dg_v, n=self.M, dim=1).t()
+        tfr_t_fft = torch.fft.fft(x_frames * tg_v, n=self.M, dim=1).t()
 
-        #m_vec = torch.arange(self.M, device=device).view(-1, 1)
         m_vec = m_axis(self.M, device=device).view(-1, 1)
         fft_phase_correction = torch.exp(2j * torch.pi * m_vec * self.half_K / self.M)
 
         tfr_base = tfr_fft * fft_phase_correction
-        tfr_d_base = tfr_d_fft * fft_phase_correction
+        tfr_t_base = tfr_t_fft * fft_phase_correction
+
+        m_grid = torch.arange(self.M, device=device).view(-1, 1)
+        n_grid = torch.arange(num_frames, device=device).view(1, -1)
+        global_phase_corr = torch.exp(-2j * torch.pi * m_grid * (n_grid * self.hop_length) / self.M)
+        
+        tfr_base = tfr_base * global_phase_corr
+        tfr_t_base = tfr_t_base * global_phase_corr
 
         magnitude = torch.abs(tfr_base)
         mask = magnitude > self.eps
 
-        v_m = torch.zeros_like(tfr_base, dtype=torch.float32)
-        v_m[mask] = torch.imag(tfr_d_base[mask] / tfr_base[mask])
+        tau_m = torch.zeros_like(tfr_base, dtype=torch.float32)
+        tau_m[mask] = torch.real(tfr_t_base[mask] / tfr_base[mask])
 
-        m_indices = torch.arange(self.M, device=device).view(-1, 1).expand(self.M, num_frames)
-        m_hat = m_indices + torch.round(v_m * self.M / (2 * torch.pi)).long()
+        col_indices = torch.arange(num_frames, device=device).view(1, -1).expand(self.M, num_frames)
+        n_hat = col_indices - torch.round(tau_m / self.hop_length).long()
 
-        valid_bounds = (m_hat >= 0) & (m_hat < self.M) & mask
+        valid_bounds = (n_hat >= 0) & (n_hat < num_frames) & mask
         lost_mask = mask & (~valid_bounds)
         lost = torch.sum(magnitude[lost_mask] ** 2).item()
 
         rtfr = torch.zeros((self.M, num_frames), dtype=torch.complex64, device=device)
 
         indices_valides = torch.nonzero(valid_bounds, as_tuple=True)
-        m_dest = m_hat[indices_valides]
-        n_dest = indices_valides[1]
+        m_dest = indices_valides[0]        
+        n_dest = n_hat[indices_valides]    # réallocation du temps
+        
         flat_dest_indices = m_dest * num_frames + n_dest
         
         flat_valeurs = tfr_base[indices_valides] / (2 * torch.pi)
@@ -83,20 +88,31 @@ class Stfrgab(Transformation):
 
         return rtfr, lost
 
-    def rec_mor(self, rtfr):
+    def rec(self, rtfr):
         device = rtfr.device
         M, num_frames = rtfr.shape
 
         if self.hop_length != 1:
-            print("On ne peut pas recconstruire avec hop lenth > 1")
+            print("On ne peut pas reconstruire avec hop length > 1")
+            return None
+        m_grid = torch.arange(M, device=device).view(-1, 1)
+        n_grid = torch.arange(num_frames, device=device).view(1, -1)
+        
+        inverse_global_phase = torch.exp(2j * torch.pi * m_grid * (n_grid * self.hop_length) / M)
+        rtfr_phased = rtfr * inverse_global_phase
+        x_reconstructed = torch.sum(rtfr_phased, dim=0).real
 
-        h_0 = self.g[self.half_K].to(device)
+        h_0 = torch.sum(self.g.to(device)).real
 
         scale = (2 * torch.pi) / (M * h_0)
+        
+        x_final = x_reconstructed * scale
 
-        x_reconstructed = torch.sum(rtfr, dim=0).real * scale
-        if hasattr(self, 'N_input') and self.hop_length == 1:
-            return x_reconstructed[:self.N_input]
+        if hasattr(self, 'N_input'):
+            if x_final.shape[0] < self.N_input:
+                padding = torch.zeros(self.N_input - x_final.shape[0], device=device)
+                x_final = torch.cat([x_final, padding])
+            else:
+                x_final = x_final[:self.N_input]
 
-        return x_reconstructed
-    
+        return x_final

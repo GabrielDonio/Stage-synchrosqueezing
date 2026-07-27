@@ -24,7 +24,7 @@ window = torch.hann_window(len_win)
 ops = {
     "TfrWin (hann window " + str(len_win) + " samples) ": TfrWin(M, hop_length=1, window=window),
     "Tfrgab": Tfrgab(M, hop_length=1),
-    "STFRGab": Stfrgab(M, hop_length=1, gamma_K=1e-8),
+    "STFRGab": Stfrgab(M, hop_length=2, gamma_K=1e-8),
     "STFRWin (hann window " + str(len_win) + " samples)": Stfrwin(M, hop_length=1, window=window),
     "RFWin (hann window " + str(len_win) + " samples)": RfWin(M, hop_length=1, window=window),
     "RFgab": Rfgab(M, hop_length=1),

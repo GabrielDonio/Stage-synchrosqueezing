@@ -79,7 +79,7 @@ class Tfrgab(Transformation):
         tfr_segments = torch.fft.ifft(tfr_origin.t(), n=M, dim=1) #application de la IFFT sur chaque frame
         tfr_segments = tfr_segments[:, :self.len_win]
 
-        tfr_segments = tfr_segments * g_v
+        tfr_segments = tfr_segments #* g_v
 
         len_padded_output = (num_frames - 1) * self.hop_length + self.len_win#longueur du signal reconstruit après overlap-add
         
@@ -92,7 +92,7 @@ class Tfrgab(Transformation):
         x_reconstructed.index_add_(0, idx_flat, tfr_segments.reshape(-1))#on reconstruit le signal en sommant les frames avec overlap-add
 
         window_sum = torch.zeros(len_padded_output, device=device, dtype=torch.float32)
-        g_squared = (g_v ** 2).repeat(num_frames)#pour la normalisation de la fenetre
+        g_squared = (g_v).repeat(num_frames)#pour la normalisation de la fenetre
         window_sum.index_add_(0, idx_flat, g_squared)
 
         mask = window_sum > self.eps
@@ -135,3 +135,4 @@ class Tfrgab(Transformation):
             return x_reconstructed[:self.N_input].real
         else:
             raise ValueError("rec_mor is only applicable when hop_length is 1.")
+    

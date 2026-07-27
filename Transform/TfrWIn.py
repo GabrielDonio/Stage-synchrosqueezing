@@ -61,7 +61,7 @@ class TfrWin(Transformation):
         tfr_segments = torch.fft.ifft(tfr_origin.t(), n=M, dim=1)
         tfr_segments = tfr_segments[:, :self.len_win] 
 
-        tfr_segments = tfr_segments * w_v  
+        tfr_segments = tfr_segments  
 
         len_padded_output = (num_frames - 1) * self.hop_length + self.len_win
         
@@ -74,7 +74,7 @@ class TfrWin(Transformation):
         x_reconstructed.index_add_(0, idx_flat, tfr_segments.reshape(-1))
 
         window_sum = torch.zeros(len_padded_output, device=device, dtype=torch.float32)
-        w_squared = (w_v ** 2).repeat(num_frames) 
+        w_squared = (w_v).repeat(num_frames) 
         window_sum.index_add_(0, idx_flat, w_squared)
 
         mask = window_sum > self.eps
