@@ -256,9 +256,6 @@ class Tfrvsgab2(Transformation):
 
         return tfr, stfr, lost, q_hatmap, if_hatmap
     def rec(self, stfr):
-        """Reconstruit le signal temporel x(t) à partir de la matrice synchrosqueezée stfr
-        selon la formule ponctuelle (Éq. 29 du papier).
-        """
         if self.hop_length != 1:
             raise ValueError(
                 "La reconstruction ponctuelle (rec_mor) nécessite hop_length = 1."
@@ -266,23 +263,18 @@ class Tfrvsgab2(Transformation):
 
         if not hasattr(self, "N_input"):
             raise ValueError(
-                "N_input n'est pas défini. Veuillez exécuter forward() avant rec()."
+                "N_input n'est pas défini"
             )
 
         device = stfr.device
         M, num_frames = stfr.shape
         g_v = self.g.to(device)
 
-        # 1. Inversion IFFT le long de l'axe fréquentiel pour chaque trame.
-        # On multiplie par (2 * torch.pi) pour annuler la division faite dans le forward.
-        # (L'IFFT de PyTorch s'occupe déjà de diviser par M, ce qui équivaut à dw / 2pi)
         stfr_corrected = stfr * (2 * torch.pi)
         tfr_segments = torch.fft.ifft(stfr_corrected.t(), n=M, dim=1)
         
-        # On ne garde que la portion utile (taille de la fenêtre)
         tfr_segments = tfr_segments[:, : self.len_win]
 
-        # 2. Évaluation exacte du signal au centre de la fenêtre de Gabor (t0 = 0)
         x_at_t = tfr_segments[:, self.half_K]
         h_0 = g_v[self.half_K]
 
@@ -291,8 +283,6 @@ class Tfrvsgab2(Transformation):
                 "Le centre de la fenêtre de Gabor est nul ou trop petit."
             )
 
-        # 3. Normalisation par la valeur de la fenêtre au centre h(0)
         x_reconstructed = x_at_t / h_0
 
-        # On retourne le signal réel tronqué à la longueur initiale
         return x_reconstructed[: self.N_input].real
