@@ -1,97 +1,142 @@
-import matplotlib.pyplot as plt
-import numpy as np
 import torch
-from Transform.TfrvsGab2 import Tfrvsgab2
-
-
-Fs = 1000.0  
-N = 1000 
-t = torch.linspace(0, 1, N)
-
-f0, f1 = 50.0, 350.0  
-alpha_real_hz = f1 - f0 
-
-
-phase = 2 * torch.pi * (f0 * t + 0.5 * alpha_real_hz * t**2)
-clean_signal = torch.exp(1j * phase)
-P_signal = 1.0 
-
-target_t_idx = N // 2
-target_time = t[target_t_idx].item()
-
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"Utilisation du device : {device}")
-
-M = 512
-transform = Tfrvsgab2(
-    M=M, L=15.0, q_method=2, if_method=1, eps=1e-3, q_threshold=1e-3
-).to(device)
-
-clean_signal = clean_signal.to(device)
-
-
-snr_db_range = np.arange(-10, 60, 5) 
-num_trials = 20 
-mse_alpha_list = []
-
-
-
-for snr_db in snr_db_range:
-    snr_linear = 10 ** (snr_db / 10.0)
-    noise_std = np.sqrt(P_signal / snr_linear)
-
-    squared_errors = []
-
-    for trial in range(num_trials):
-        noise = (
-            torch.randn(N, device=device) + 1j * torch.randn(N, device=device)
-        ) * (noise_std / np.sqrt(2.0))
-        x_noisy = clean_signal + noise
-
-        with torch.no_grad():
-            tfr, _, _, q_map, _ = transform(x_noisy)
-
-        tfr_col = torch.abs(tfr[:, target_t_idx])
-
-        ridge_m_idx = torch.argmax(tfr_col).item()
-
-        alpha_est_raw = q_map.imag[ridge_m_idx, target_t_idx].item()
-        alpha_est_hz = alpha_est_raw * (Fs**2) / (2 * np.pi)
-
-        sq_err = (alpha_est_hz - alpha_real_hz) ** 2
-        squared_errors.append(sq_err)
-
-    mse_val = np.mean(squared_errors)
-    mse_alpha_list.append(mse_val)
-
-    mse_db_val = 10 * np.log10(mse_val)
-    print(
-        f"SNR: {snr_db:5.1f} dB | MSE Alpha: {mse_val:10.4f} (Hz/s)² | MSE: {mse_db_val:6.2f} dB"
+from Transform.STFRGab import Stfrgab
+from Transform.STFRWin import Stfrwin
+import matplotlib.pyplot as plt
+def generate_signal_1(Fs=1000.0, complex_signal=False, device='cpu'):
+    Nchirp = 440
+    loc_impulse1 = 15  
+    loc_impulse2 = 40
+    val_impulse = 10.0
+    
+    t1 = torch.arange(1, Nchirp + 1, dtype=torch.float32, device=device) / Fs
+    w1 = 2 * torch.pi * 3
+    a1 = 50.0
+    p1 = torch.pi
+    freq_sin = 355.0
+    
+    f_inst = freq_sin + a1 * torch.cos(w1 * t1 + p1)
+    phi_t = torch.cumsum(f_inst, dim=0) / Fs
+    s0 = torch.cos(2 * torch.pi * phi_t)
+    
+    t_chirp = torch.arange(Nchirp, dtype=torch.float32, device=device)
+    fmconst = torch.exp(1j * 2 * torch.pi * 0.1 * t_chirp)
+    f1, f2 = 0.12, 0.3
+    phase_fmlin = 2 * torch.pi * (f1 * t_chirp + (f2 - f1) / (2 * Nchirp) * (t_chirp ** 2))
+    fmlin = torch.exp(1j * phase_fmlin)
+    
+    s_core = fmconst + fmlin + s0
+    
+    N = 500
+    pad_len = N - Nchirp
+    s = torch.cat([torch.zeros(pad_len, dtype=torch.complex64, device=device), s_core])
+    
+    s[loc_impulse1 - 1] = val_impulse
+    s[loc_impulse2 - 1] = val_impulse
+    
+    if not complex_signal:
+        s = torch.real(s)
+        
+    return s
+def gaussian_window(L, gamma_K):
+    K_val = int(
+        torch.round(
+            2 * L * torch.sqrt(torch.tensor(2.0) * torch.log(torch.tensor(1.0 / gamma_K)))
+        ).item()
     )
+    half_K = K_val // 2
+    k = torch.arange(-half_K, half_K + 1, dtype=torch.float32)
+    A = 1 / (torch.sqrt(torch.tensor(2.0 * torch.pi)) * L)
+    C = -1 / (2 * L**2)
+    return A * torch.exp(C * (k ** 2))
 
-mse_alpha_arr = np.array(mse_alpha_list)
-mse_alpha_db = 10 * np.log10(mse_alpha_arr)
+device = "cuda" if torch.cuda.is_available() else "cpu"
 
-plt.figure(figsize=(9, 5))
+x = generate_signal_1(Fs=1000.0, complex_signal=True, device=device)
 
-plt.plot(
-    snr_db_range,
-    mse_alpha_db,
-    "o-",
-    color="navy",
-    linewidth=2,
-    markersize=6,
+M = 1024
+L = 10
+gamma_K = 1e-4
+hop_length = 1
+eps = 1e-6
+
+window = gaussian_window(L, gamma_K)
+
+gab = Stfrgab(M=M, hop_length=hop_length, eps=eps, L=L, gamma_K=gamma_K).to(device)
+win = Stfrwin(M=M, window=window, hop_length=hop_length, eps=eps).to(device)
+
+rtfr_gab, lost_gab = gab.forward(x)
+rtfr_win, lost_win = win.forward(x)
+
+border = gab.half_K
+rtfr_gab_c = rtfr_gab[:, border:-border]
+rtfr_win_c = rtfr_win[:, border:-border]
+
+diff = rtfr_win_c - rtfr_gab_c
+rel_diff = torch.linalg.norm(diff) / (torch.linalg.norm(rtfr_gab_c) + 1e-12)
+mean_abs_diff = torch.mean(torch.abs(diff))
+max_abs_diff = torch.max(torch.abs(diff))
+
+plt.figure(figsize=(12, 6))
+plt.subplot(1, 2, 1)
+plt.imshow(torch.abs(rtfr_gab_c).cpu().numpy(), aspect='auto', origin='lower', cmap='magma')
+plt.title('STFR Gabor')
+plt.xlabel('Time')
+plt.ylabel('Frequency Bin')
+plt.subplot(1, 2, 2)
+plt.imshow(torch.abs(rtfr_win_c).cpu().numpy(), aspect='auto', origin='lower', cmap='magma')
+plt.title('STFR Windowed')  
+plt.xlabel('Time')
+plt.ylabel('Frequency Bin')
+plt.tight_layout()  
+plt.show()
+x_hat_gab = gab.rec(rtfr_gab)
+x_hat_win = win.rec(rtfr_win)
+
+plt.figure(figsize=(12, 6))
+plt.subplot(1, 2, 1)
+plt.plot(x.cpu().numpy(), label='Original')  
+plt.plot(x_hat_gab.cpu().numpy(), label='Gabor')
+plt.xlabel('Time')
+plt.ylabel('Amplitude')
+plt.legend()
+plt.subplot(1, 2, 2)
+plt.plot(x.cpu().numpy(), label='Original')  
+plt.plot(x_hat_win.cpu().numpy(), label='Windowed')
+plt.xlabel('Time')  
+plt.ylabel('Amplitude')
+plt.legend()    
+plt.tight_layout()  
+plt.show()  
+print("lost gab:", lost_gab)
+print("lost win:", lost_win)
+print("relative tf diff:", rel_diff.item())
+print("mean abs tf diff:", mean_abs_diff.item())
+print("max abs tf diff:", max_abs_diff.item())
+
+half_gab = rtfr_gab_c.shape[0] // 2
+half_win = rtfr_win_c.shape[0] // 2
+
+plt.figure(figsize=(12, 6))
+
+plt.subplot(1, 2, 1)
+plt.imshow(
+    torch.abs(rtfr_gab_c[half_gab:, :]).cpu().numpy(),
+    aspect='auto',
+    cmap='magma'
 )
+plt.title('STFR Gabor')
+plt.xlabel('Time')
+plt.ylabel('Frequency Bin')
 
-plt.title(
-    f"performance estimateur",
-    fontsize=12,
+plt.subplot(1, 2, 2)
+plt.imshow(
+    torch.abs(rtfr_win_c[half_win:, :]).cpu().numpy(),
+    aspect='auto',
+    cmap='magma'
 )
-plt.xlabel("SNR (dB)", fontsize=11)
-plt.ylabel(r"MSE $[10 \log_{10}((\text{Hz/s})^2)]$ (dB)", fontsize=11)
-plt.grid(True, linestyle="--", alpha=0.7)
-plt.legend(fontsize=11)
+plt.title('STFR Windowed')
+plt.xlabel('Time')
+plt.ylabel('Frequency Bin')
+
 plt.tight_layout()
-
 plt.show()

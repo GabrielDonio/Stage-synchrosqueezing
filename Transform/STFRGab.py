@@ -39,7 +39,7 @@ class Stfrgab(Transformation):
         dg_v = self.dg.to(device)
 
         x_3d = x.unsqueeze(0).unsqueeze(0)
-        x_padded_3d = torch.nn.functional.pad(x_3d, (self.half_K, self.half_K), mode="reflect")
+        x_padded_3d = torch.nn.functional.pad(x_3d, (self.half_K, self.half_K), mode="constant", value=0)
         x_padded = x_padded_3d.squeeze(0).squeeze(0)
 
         n_vec = torch.arange(0, self.N_input, self.hop_length, device=device)
@@ -83,7 +83,7 @@ class Stfrgab(Transformation):
 
         return rtfr, lost
 
-    def rec_mor(self, rtfr):
+    def rec(self, rtfr):
         device = rtfr.device
         M, num_frames = rtfr.shape
 

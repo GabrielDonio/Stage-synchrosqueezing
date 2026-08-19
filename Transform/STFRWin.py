@@ -4,9 +4,6 @@ from Transform.Transformation import Transformation
 
 
 class Stfrwin(Transformation):
-    """
-    Synchrosqueezed STFT with an arbitrary window and optional hop length.
-    """
     def __init__(self, M, window, hop_length=1, eps=0.01):
         super().__init__(M, eps)
         self.M = M

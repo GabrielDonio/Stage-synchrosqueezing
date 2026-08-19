@@ -24,7 +24,7 @@ window = torch.hann_window(len_win)
 ops = {
     "TfrWin (hann window " + str(len_win) + " samples) ": TfrWin(M, hop_length=1, window=window),
     "Tfrgab": Tfrgab(M, hop_length=1),
-    "STFRGab": Stfrgab(M, hop_length=2, gamma_K=1e-8),
+    "STFRGab": Stfrgab(M, hop_length=1, gamma_K=1e-8),
     "STFRWin (hann window " + str(len_win) + " samples)": Stfrwin(M, hop_length=1, window=window),
     "RFWin (hann window " + str(len_win) + " samples)": RfWin(M, hop_length=1, window=window),
     "RFgab": Rfgab(M, hop_length=1),
@@ -35,12 +35,31 @@ def rqf(x, x_at, eps=1e-12):
     return 20 * torch.log10(torch.norm(x) / (torch.norm(x - x_at) + eps))
 
 
-def renyi_entropy(tfr, q=2.0, eps=1e-12):
-    if q <= 0 or abs(q - 1.0) < eps:
-        raise ValueError("q must be > 0 and different from 1.")
-    power = torch.abs(tfr) ** 2
-    prob = power / (torch.sum(power) + eps)
-    return torch.log(torch.sum(prob ** q) + eps) / (1.0 - q)
+def renyi_entropy(tfr, t=None, f=None, alpha=3.0, eps=1e-12):
+    if alpha <= 0:
+        raise ValueError("alpha must be > 0.")
+    if t is None:
+        t = torch.arange(tfr.shape[1], dtype=torch.float32, device=tfr.device)
+    if f is None:
+        f = torch.arange(tfr.shape[0], dtype=torch.float32, device=tfr.device)
+
+    density = torch.abs(tfr) ** 2
+    density = density / (integ2d(density, t, f, eps=eps) + eps)
+
+    if abs(alpha - 1.0) < eps:
+        if torch.min(density) < 0:
+            raise ValueError("distribution with negative values => alpha=1 not allowed")
+        return -integ2d(density * torch.log2(density + eps), t, f, eps=eps)
+
+    return torch.log2(integ2d(density ** alpha, t, f, eps=eps) + eps) / (1.0 - alpha)
+
+
+def integ2d(z, t, f, eps=1e-12):
+    t = torch.as_tensor(t, dtype=torch.float32, device=z.device)
+    f = torch.as_tensor(f, dtype=torch.float32, device=z.device)
+    f_sorted, idx = torch.sort(f)
+    z = z.index_select(0, idx)
+    return torch.trapz(torch.trapz(z, t, dim=1), f_sorted, dim=0)
 
 
 def load_sig_file(path):
@@ -66,6 +85,7 @@ def save_tfr_figure(tfr, title, filename, fs, x_len):
         torch.abs(tfr_pos).cpu().numpy(),
         aspect="auto",
         origin="lower",
+        cmap="inferno",
         extent=[0, x_len / fs, freqs_pos[0].item(), freqs_pos[-1].item()],
     )
     plt.xlabel("Time (s)")
@@ -119,7 +139,11 @@ if __name__ == "__main__":
             tfr = out
             lost = None
 
-        entropy = renyi_entropy(tfr).item()
+        n_freq, n_time = tfr.shape
+        t_axis = torch.arange(n_time, dtype=torch.float32, device=tfr.device)
+        f_axis = torch.arange(n_freq, dtype=torch.float32, device=tfr.device)
+
+        entropy = renyi_entropy(tfr, t=t_axis, f=f_axis, alpha=3.0).item()
 
         x_hat = None
         rqf_val = None
@@ -134,8 +158,6 @@ if __name__ == "__main__":
                 rec_ok = False
 
         title_tfr = f"{name} | Renyi={entropy:.2f}"
-        if lost is not None:
-            title_tfr += f" | Lost energy={lost:.2f}"
         save_tfr_figure(
             tfr=tfr,
             title=title_tfr,
